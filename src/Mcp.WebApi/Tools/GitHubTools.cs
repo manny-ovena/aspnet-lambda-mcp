@@ -1,6 +1,6 @@
 using System.ComponentModel;
-using ModelContextProtocol.Server;
 using Mcp.Application.Services;
+using ModelContextProtocol.Server;
 
 namespace Mcp.WebApi.Tools;
 
@@ -16,6 +16,6 @@ public class GitHubTools
 
     [McpServerTool]
     [Description("Get repositories for a given owner")]
-    public async Task<IEnumerable<Repository>> GetRepositoriesAsync(string owner) => 
+    public async Task<IEnumerable<Repository>> GetRepositoriesAsync(string owner) =>
         await _gitHubService.ListRepositoriesAsync(owner);
 }

@@ -1,9 +1,9 @@
-using ModelContextProtocol.Server;
-using Microsoft.Extensions.DependencyInjection;
 using Amazon.Lambda.AspNetCoreServer;
 using Mcp.Application.Services;
 using Mcp.Infrastructure.GitHub;
 using Mcp.WebApi.Tools;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 
