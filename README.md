@@ -14,6 +14,22 @@ Use MCP's `tools/list` method to discover the tool names and input schemas expos
 
 The GitHub client currently makes unauthenticated requests. Private repositories are not supported, and GitHub's unauthenticated API rate limits apply. The repository lookup uses the user endpoint, not a dedicated organization endpoint.
 
+## OAuth access control
+
+Terraform provisions an Amazon Cognito user pool and OAuth app client, and configures an API Gateway JWT authorizer. The MCP endpoint requires a Cognito access token with audience bound to the MCP resource URL and the `mcp/tools` scope. ASP.NET Core validates the same issuer, audience, and scope as defense in depth. Protected resource metadata is served at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/mcp`; unauthenticated requests include a `WWW-Authenticate` challenge with the metadata URL and required scope.
+
+Cognito issues authorization-code tokens with PKCE and supports the OAuth `resource` parameter used to bind the token audience to this MCP server. Cognito does not dynamically register OAuth clients: pre-register each MCP client's callback URL in `oauth_callback_urls` and configure the client with the Terraform output `cognito_app_client_id`. The Cognito domain prefix must be globally unique in the AWS region. User self-signup is disabled by default; create users administratively, or explicitly enable it with `-var="cognito_allow_self_signup=true"`.
+
+Terraform creates the endpoint and derives the OAuth resource URL and Cognito issuer. Set the unique domain prefix and register the callback URLs before applying:
+
+```bash
+terraform -chdir=deploy apply \
+  -var='cognito_domain_prefix=your-unique-prefix' \
+  -var='oauth_callback_urls=["http://localhost:3000/callback"]'
+```
+
+After applying, configure MCP clients with the Cognito app-client ID (`cognito_app_client_id`), Cognito managed-login domain (`cognito_hosted_ui_url`), OAuth authorization-code flow with PKCE, resource output (`mcp_resource_url`), and scope `mcp/tools`. Configure callback URLs for the actual MCP clients you intend to use. Do not use an ID token as the bearer token.
+
 ## Prerequisites
 
 - .NET 10 SDK.
@@ -26,17 +42,21 @@ From the project root:
 
 ```bash
 export ASPNETCORE_ENVIRONMENT=Development
+export Authentication__Authority="$(terraform -chdir=deploy output -raw cognito_issuer)"
+export Authentication__Audience="https://localhost:5082/mcp"
+export Authentication__Resource="$Authentication__Audience"
+export Authentication__RequiredScope="mcp/tools"
 
 dotnet restore Mcp.slnx
 dotnet build Mcp.slnx --no-restore
 dotnet run --project src/Mcp.WebApi --no-launch-profile -- \
-  --urls http://localhost:5082
+  --urls https://localhost:5082
 ```
 
-Connect an MCP client that supports Streamable HTTP to:
+The local endpoint needs a trusted HTTPS development certificate (`dotnet dev-certs https --trust`). Configure the OAuth client to request `https://localhost:5082/mcp` as its resource and ensure its callback URL is registered in Cognito. Connect an MCP client that supports Streamable HTTP to:
 
 ```text
-http://localhost:5082/mcp
+https://localhost:5082/mcp
 ```
 
 ## Call the server with curl
